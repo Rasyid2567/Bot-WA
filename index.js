@@ -10,6 +10,8 @@ const { exec } = require('child_process');
 const { promisify } = require('util');
 const execAsync = promisify(exec);
 
+const qrcode = require('qrcode-terminal');
+
 // Replit: ffmpeg sudah tersedia dari sistem (via replit.nix), tidak perlu ffmpeg-static
 
 // ─────────────────────────────────────────────
@@ -249,7 +251,7 @@ async function processMessage(sock, msg) {
       return makeSticker(sock, jid, msg, msg);
     }
 
-    if (caption === '.vo' || caption === '.rvo' || caption === '.view once') {
+    if (caption === '.vo' || caption === '.viewonce' || caption === '.view once') {
       return sendViewOnce(sock, jid, msg, msg);
     }
 
@@ -281,7 +283,7 @@ async function processMessage(sock, msg) {
       return makeSticker(sock, jid, msg, fakeQuoted);
     }
 
-    if (quoted?.imageMessage && (text === '.vo' || text === '.rvo')) {
+    if (quoted?.imageMessage && (text === '.vo' || text === '.viewonce')) {
       const fakeQuoted = { message: quoted, key: msg.key };
       return sendViewOnce(sock, jid, msg, fakeQuoted);
     }
@@ -312,6 +314,7 @@ async function startBot() {
   // Handle koneksi
   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
     if (qr) {
+      qrcode.generate(qr, { small: true });
       console.log('\n✅ Scan QR code di atas dengan WhatsApp kamu!\n');
     }
 
