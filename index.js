@@ -5,13 +5,12 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const ffmpeg = require('fluent-ffmpeg');
-const ffmpegPath = require('ffmpeg-static');
 const sharp = require('sharp');
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const execAsync = promisify(exec);
 
-ffmpeg.setFfmpegPath(ffmpegPath);
+// Replit: ffmpeg sudah tersedia dari sistem (via replit.nix), tidak perlu ffmpeg-static
 
 // ─────────────────────────────────────────────
 // KONFIGURASI AUTO REPLY
