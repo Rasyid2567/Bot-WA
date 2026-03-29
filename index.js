@@ -341,4 +341,17 @@ async function startBot() {
   });
 }
 
+// ─────────────────────────────────────────────
+// HTTP SERVER (wajib untuk Koyeb health check)
+// ─────────────────────────────────────────────
+const http = require('http');
+const PORT = process.env.PORT || 3000;
+
+http.createServer((req, res) => {
+  res.writeHead(200);
+  res.end('✅ WA Bot aktif!');
+}).listen(PORT, () => {
+  console.log(`Health check server jalan di port ${PORT}`);
+});
+
 startBot().catch(console.error);

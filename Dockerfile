@@ -21,5 +21,6 @@ COPY . .
 # Buat folder session & tmp
 RUN mkdir -p /app/session /tmp/wa-bot
 
-# Jalankan bot
+EXPOSE 3000
+
 CMD ["node", "index.js"]
