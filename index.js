@@ -10,7 +10,7 @@ const { exec } = require('child_process');
 const { promisify } = require('util');
 const execAsync = promisify(exec);
 
-const qrcode = require('qrcode-terminal');
+const qrcode = require('qrcode');
 
 // Replit: ffmpeg sudah tersedia dari sistem (via replit.nix), tidak perlu ffmpeg-static
 
@@ -251,7 +251,7 @@ async function processMessage(sock, msg) {
       return makeSticker(sock, jid, msg, msg);
     }
 
-    if (caption === '.vo' || caption === '.viewonce' || caption === '.view once') {
+    if (caption === '.vo' || caption === '.rvo' || caption === '.view once') {
       return sendViewOnce(sock, jid, msg, msg);
     }
 
@@ -283,7 +283,7 @@ async function processMessage(sock, msg) {
       return makeSticker(sock, jid, msg, fakeQuoted);
     }
 
-    if (quoted?.imageMessage && (text === '.vo' || text === '.viewonce')) {
+    if (quoted?.imageMessage && (text === '.vo' || text === '.rvo')) {
       const fakeQuoted = { message: quoted, key: msg.key };
       return sendViewOnce(sock, jid, msg, fakeQuoted);
     }
@@ -314,11 +314,12 @@ async function startBot() {
   // Handle koneksi
   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
     if (qr) {
-      qrcode.generate(qr, { small: true });
-      console.log('\n✅ Scan QR code di atas dengan WhatsApp kamu!\n');
+      currentQR = qr;
+      console.log('QR code diperbarui — buka URL Replit untuk scan!');
     }
 
     if (connection === 'close') {
+      currentQR = null;
       const code = new Boom(lastDisconnect?.error)?.output?.statusCode;
       const shouldReconnect = code !== DisconnectReason.loggedOut;
       console.log('Koneksi terputus, kode:', code, shouldReconnect ? '— Reconnecting...' : '— Logged out.');
@@ -326,6 +327,7 @@ async function startBot() {
     }
 
     if (connection === 'open') {
+      currentQR = null;
       console.log('✅ Bot terhubung ke WhatsApp!');
     }
   });
@@ -344,16 +346,132 @@ async function startBot() {
 }
 
 // ─────────────────────────────────────────────
-// HTTP SERVER (wajib untuk Koyeb health check)
+// STATE: QR CODE
+// ─────────────────────────────────────────────
+let currentQR = null;
+
+// ─────────────────────────────────────────────
+// HTTP SERVER — tampilkan QR di halaman web
 // ─────────────────────────────────────────────
 const http = require('http');
 const PORT = process.env.PORT || 3000;
 
-http.createServer((req, res) => {
-  res.writeHead(200);
-  res.end('✅ WA Bot aktif!');
+http.createServer(async (req, res) => {
+  if (req.url === '/') {
+    if (currentQR) {
+      // Generate QR sebagai PNG base64
+      const qrImage = await qrcode.toDataURL(currentQR, { width: 300, margin: 2 });
+
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(`<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WA Bot — Scan QR</title>
+  <meta http-equiv="refresh" content="10"> <!-- auto refresh tiap 10 detik -->
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #111;
+      color: #fff;
+      font-family: sans-serif;
+      text-align: center;
+      padding: 24px;
+    }
+    .card {
+      background: #1e1e1e;
+      border-radius: 20px;
+      padding: 32px;
+      max-width: 360px;
+      width: 100%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    h1 { font-size: 20px; margin-bottom: 8px; }
+    p { color: #aaa; font-size: 14px; margin-bottom: 24px; }
+    img {
+      width: 240px;
+      height: 240px;
+      border-radius: 12px;
+      background: #fff;
+      padding: 8px;
+    }
+    .badge {
+      margin-top: 20px;
+      background: #25d366;
+      color: #fff;
+      border-radius: 999px;
+      padding: 6px 16px;
+      font-size: 13px;
+      display: inline-block;
+    }
+    .note { margin-top: 16px; font-size: 12px; color: #666; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🤖 WhatsApp Bot</h1>
+    <p>Scan QR ini dengan WhatsApp kamu</p>
+    <img src="${qrImage}" alt="QR Code">
+    <div class="badge">📱 Setelan → Perangkat Tertaut</div>
+    <p class="note">Halaman ini refresh otomatis tiap 10 detik</p>
+  </div>
+</body>
+</html>`);
+    } else {
+      // Bot sudah terhubung atau sedang loading
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(`<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WA Bot</title>
+  <meta http-equiv="refresh" content="5">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #111;
+      color: #fff;
+      font-family: sans-serif;
+      text-align: center;
+      padding: 24px;
+    }
+    .card {
+      background: #1e1e1e;
+      border-radius: 20px;
+      padding: 40px 32px;
+      max-width: 360px;
+    }
+    .icon { font-size: 48px; margin-bottom: 16px; }
+    h1 { font-size: 20px; margin-bottom: 8px; }
+    p { color: #aaa; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">✅</div>
+    <h1>Bot Aktif!</h1>
+    <p>WhatsApp bot sudah terhubung dan siap digunakan.<br><br>Jika QR belum muncul, tunggu beberapa detik...</p>
+  </div>
+</body>
+</html>`);
+    }
+  } else {
+    res.writeHead(404);
+    res.end('Not found');
+  }
 }).listen(PORT, () => {
-  console.log(`Health check server jalan di port ${PORT}`);
+  console.log(`Web server jalan di port ${PORT} — buka URL Replit untuk scan QR!`);
 });
 
 startBot().catch(console.error);
